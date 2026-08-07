@@ -1,9 +1,3 @@
-"""
-app.py — CardioDetect
-Deteksi Kardiomegali X-Ray Thoraks
-YOLOv11s + SSD300 VGG16
-"""
-
 from export_pdf import export_detection_pdf
 from styles     import inject_styles, section_header
 
@@ -14,9 +8,8 @@ from PIL import Image
 from pathlib import Path
 from ultralytics import YOLO
 from streamlit_option_menu import option_menu
-
+from datetime import date
 from styles import inject_styles
-
 
 from util import (
     is_valid_xray,
@@ -25,23 +18,15 @@ from util import (
     predict_ssd,
 )
 
-# ============================================================
-# PAGE CONFIG
-# ============================================================
 st.set_page_config(
-    page_title="CardioDetect",
+    page_title="Cardiomegaly Detection",
     page_icon="🫀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 inject_styles()
 
-
-
-# ============================================================
-# MODEL LOADER
-# ============================================================
+#Model Loader
 @st.cache_resource
 def load_yolo_model(path: str):
     """
@@ -151,14 +136,12 @@ if ssd_available:
 # ============================================================
 with st.sidebar:
 
-    st.markdown("""
-    <div style='text-align:center'>
-        <h1>🫀 CardioDetect</h1>
-        <p style='color:gray'>
-            X-ray Thoraks Cardiomegaly Object Detection
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Logo UMB
+    st.image("bg/logo-umb.png", width=120)
+
+    # Title / Description
+
+    st.title("🏥 Cardiomegaly Detection on Chest X-Ray Thorax")
 
     selected = option_menu(
         menu_title="Main Menu",
@@ -180,7 +163,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown("### 📦 Model Status")
+    st.markdown("### Model Status")
 
     if yolo_available:
         st.success("YOLOv11s Loaded ✅")
@@ -197,6 +180,8 @@ with st.sidebar:
     st.markdown("---")
 
     st.info(f"🖥️ Device: {DEVICE.upper()}")
+    st.markdown("---")
+    st.info("**Developer:** Mochammad Irsyad Kurniawan Project Second Opinion AI Team\n\n**Version:** 1.0.0")
 
 
 # ============================================================
@@ -281,7 +266,7 @@ def render_stats_card(model_name: str, det_count: int, inf_time: float, threshol
 # ============================================================
 if selected == "Home":
 
-    st.title("🫀 Cardiomegaly Detection System")
+    st.title("🫀 Sistem Deteksi Abnormalitas Kardiomegali pada Citra X-Ray Thoraks")
     st.markdown("---")
 
     col1, col2 = st.columns([2, 1])
@@ -289,31 +274,34 @@ if selected == "Home":
     with col1:
 
         st.markdown("""
-        ### Selamat Datang 👋
+        ### Selamat Datang 
 
-        Sistem ini digunakan untuk mendeteksi **Kardiomegali**
-        menggunakan citra **X-Ray Thoraks** berbasis Deep Learning.
+        Sistem ini digunakan untuk mendeteksi **Kardiomegali** atau CTR (Cardiothoracic Ratio)
+        menggunakan citra **X-Ray Thoraks** berbasis Deep Learning dan Computer Vision.
 
-        ### 🚀 Fitur Sistem
+        ### Fitur Sistem
         - YOLOv11s Object Detection
         - SSD300 VGG16 Object Detection
         - Bounding Box Detection
-        - CLAHE Enhancement
+        - CLAHE Enhancement (Kontras pada Image)
         - Real-time Inference
-        - Confidence Score
+        - Class Prediction (Kardiomegali, Normal)
+        - Confidence Score (Accuracy)
 
         ### 📋 Cara Penggunaan
         1. Buka halaman **Detection**
-        2. Upload gambar X-ray (JPG/PNG)
-        3. Pilih model deteksi
-        4. Atur Confidence Threshold
-        5. Lihat hasil dan interpretasi deteksi
+        2. Isi data pasien (nama & tanggal lahir)
+        3. Upload gambar X-ray (JPG/PNG)
+        4. Pilih model deteksi
+        5. Atur Confidence Threshold
+        6. Lihat hasil dan interpretasi deteksi
+        7. Download laporan PDF
 
         ### ⚠️ Disclaimer
         Sistem ini hanya digunakan untuk:
-        - Penelitian
+        - Penelitian terkait Object Detection
         - Edukasi
-        - Tugas akhir
+        - Project Tugas akhir
 
         Bukan pengganti diagnosis dokter.
         """)
@@ -338,6 +326,37 @@ if selected == "Home":
 elif selected == "Detection":
 
     st.title("🔬 X-Ray Detection")
+    st.markdown("---")
+
+    # ============================================================
+    # DATA PASIEN
+    # ============================================================
+    st.markdown("### 🧑‍⚕️ Data Pasien")
+    st.caption("Data ini akan ditampilkan pada laporan PDF hasil deteksi.")
+
+    col_p1, col_p2 = st.columns(2)
+
+    with col_p1:
+        patient_name = st.text_input(
+            "Nama Pasien",
+            placeholder="Masukkan nama lengkap pasien"
+        )
+
+    with col_p2:
+        patient_dob = st.date_input(
+            "Tanggal Lahir",
+            value=None,
+            format="DD/MM/YYYY",
+            min_value=date(1900, 1, 1),
+            max_value=date.today()
+        )
+
+    # Format tanggal lahir menjadi string untuk PDF
+    patient_dob_str = patient_dob.strftime("%d %B %Y") if patient_dob else "-"
+
+    if not patient_name:
+        st.warning("📌 Mohon isi nama pasien sebelum melanjutkan deteksi.")
+
     st.markdown("---")
 
     # -- Kontrol --
@@ -448,24 +467,27 @@ elif selected == "Detection":
                         render_result_card(det)
                 else:
                     st.info("ℹ️ Tidak ada objek terdeteksi di atas threshold.")
-                    
-            pdf_yolo = export_detection_pdf(
-            model_name="YOLOv11s",
-            original_img=original,
-            result_img=yolo_img,
-            detections=yolo_dets,
-            inf_time_ms=yolo_time,
-            conf_thresh=conf_thresh,
-            clahe_applied=run_norm,
-        )
 
-        st.download_button(
-            label="📥 Download YOLO PDF",
-            data=pdf_yolo,
-            file_name="cardiodetect_yolo_report.pdf",
-            mime="application/pdf",
-            key="yolo_pdf"
-        )
+            pdf_yolo = export_detection_pdf(
+                model_name="YOLOv11s",
+                original_img=original,
+                result_img=yolo_img,
+                detections=yolo_dets,
+                inf_time_ms=yolo_time,
+                conf_thresh=conf_thresh,
+                clahe_applied=run_norm,
+                patient_name=patient_name,
+                patient_dob=patient_dob_str,
+            )
+
+            st.download_button(
+                label="📥 Download YOLO PDF",
+                data=pdf_yolo,
+                file_name="cardiodetect_yolo_report.pdf",
+                mime="application/pdf",
+                key="yolo_pdf",
+                disabled=not patient_name,
+            )
 
         # ---------- SSD ----------
         with col_ssd:
@@ -498,41 +520,28 @@ elif selected == "Detection":
                 else:
                     st.info("ℹ️ Tidak ada objek terdeteksi di atas threshold.")
 
-    # # ────────────────────────────────────────────────────────
-    # # YOLO saja — gambar kiri, info kanan
-    # # ────────────────────────────────────────────────────────
-    # elif model_choice == "YOLOv11s":
+            # EXPORT PDF SSD
+            pdf_ssd = export_detection_pdf(
+                model_name="SSD300 VGG16",
+                original_img=original,
+                result_img=ssd_img,
+                detections=ssd_dets,
+                inf_time_ms=ssd_time,
+                conf_thresh=conf_thresh,
+                clahe_applied=run_norm,
+                patient_name=patient_name,
+                patient_dob=patient_dob_str,
+            )
 
-    #     st.markdown("### 🔵 Hasil Deteksi — YOLOv11s")
+            st.download_button(
+                label="📥 Download SSD PDF",
+                data=pdf_ssd,
+                file_name="cardiodetect_ssd_report.pdf",
+                mime="application/pdf",
+                key="ssd_pdf",
+                disabled=not patient_name,
+            )
 
-    #     if not yolo_available:
-    #         st.error("YOLOv11s model tidak ditemukan.")
-    #         st.caption(f"Path: `{YOLO_WEIGHT}`")
-    #     else:
-    #         with st.spinner("Menjalankan YOLOv11s..."):
-    #             start     = time.perf_counter()
-    #             yolo_img, yolo_dets = predict_yolo(
-    #                 yolo_model, processed, conf_thresh
-    #             )
-    #             yolo_time = (time.perf_counter() - start) * 1000
-
-    #         col_img, col_info = st.columns([1, 1])
-
-    #         with col_img:
-    #             st.markdown("**📸 Hasil Bounding Box**")
-    #             st.image(yolo_img, use_column_width=True)
-
-    #         with col_info:
-    #             st.markdown("**📋 Informasi Deteksi**")
-    #             render_stats_card("YOLOv11s", len(yolo_dets), yolo_time, conf_thresh)
-
-    #             if yolo_dets:
-    #                 st.markdown("**🔎 Detail Hasil**")
-    #                 for det in yolo_dets:
-    #                     render_result_card(det)
-    #             else:
-    #                 st.info("ℹ️ Tidak ada objek terdeteksi di atas threshold.")
-    
     # ============================================================
     # YOLO saja — gambar kiri, info kanan
     # ============================================================
@@ -557,114 +566,85 @@ elif selected == "Detection":
 
             col_img, col_info = st.columns([1, 1])
 
-        # ====================================================
-        # IMAGE RESULT
-        # ====================================================
-        with col_img:
+            # ====================================================
+            # IMAGE RESULT
+            # ====================================================
+            with col_img:
 
-            st.markdown("**📸 Hasil Bounding Box**")
+                st.markdown("**📸 Hasil Bounding Box**")
 
-            st.image(
-                yolo_img,
-                use_column_width=True
-            )
-
-        # ====================================================
-        # DETECTION INFO
-        # ====================================================
-        with col_info:
-
-            st.markdown("**📋 Informasi Deteksi**")
-
-            render_stats_card(
-                "YOLOv11s",
-                len(yolo_dets),
-                yolo_time,
-                conf_thresh
-            )
-
-            if yolo_dets:
-
-                st.markdown("**🔎 Detail Hasil**")
-
-                for det in yolo_dets:
-                    render_result_card(det)
-
-            else:
-                st.info(
-                    "ℹ️ Tidak ada objek terdeteksi "
-                    "di atas threshold."
+                st.image(
+                    yolo_img,
+                    use_column_width=True
                 )
 
-            # =================================================
-            # EXPORT PDF
-            # =================================================
-            st.markdown("---")
-            st.markdown("### 📄 Export Report")
+            # ====================================================
+            # DETECTION INFO
+            # ====================================================
+            with col_info:
 
-            try:
+                st.markdown("**📋 Informasi Deteksi**")
 
-                pdf_bytes = export_detection_pdf(
-                    model_name="YOLOv11s",
-                    original_img=original,
-                    result_img=yolo_img,
-                    detections=yolo_dets,
-                    inf_time_ms=yolo_time,
-                    conf_thresh=conf_thresh,
-                    clahe_applied=run_norm,
+                render_stats_card(
+                    "YOLOv11s",
+                    len(yolo_dets),
+                    yolo_time,
+                    conf_thresh
                 )
 
-                st.download_button(
-                    label="📥 Download PDF Report",
-                    data=pdf_bytes,
-                    file_name="cardiodetect_yolov11_report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                )
+                if yolo_dets:
 
-                st.success("✅ PDF report siap di-download")
+                    st.markdown("**🔎 Detail Hasil**")
 
-            except Exception as e:
+                    for det in yolo_dets:
+                        render_result_card(det)
 
-                st.error(
-                    f"❌ Gagal membuat PDF report:\n{e}"
-                )
+                else:
+                    st.info(
+                        "ℹ️ Tidak ada objek terdeteksi "
+                        "di atas threshold."
+                    )
 
-    # # ────────────────────────────────────────────────────────
-    # # SSD saja — gambar kiri, info kanan
-    # # ────────────────────────────────────────────────────────
-    # elif model_choice == "SSD300 (VGG16)":
+                # =================================================
+                # EXPORT PDF
+                # =================================================
+                st.markdown("---")
+                st.markdown("### 📄 Export Report")
 
-    #     st.markdown("### 🟡 Hasil Deteksi — SSD300 (VGG16)")
+                try:
 
-    #     if not ssd_available:
-    #         st.error("SSD model tidak ditemukan.")
-    #         st.caption(f"Path: `{SSD_WEIGHT}`")
-    #     else:
-    #         with st.spinner("Menjalankan SSD300..."):
-    #             start    = time.perf_counter()
-    #             ssd_img, ssd_dets = predict_ssd(
-    #                 ssd_model, processed, conf_thresh, DEVICE
-    #             )
-    #             ssd_time = (time.perf_counter() - start) * 1000
+                    pdf_bytes = export_detection_pdf(
+                        model_name="YOLOv11s",
+                        original_img=original,
+                        result_img=yolo_img,
+                        detections=yolo_dets,
+                        inf_time_ms=yolo_time,
+                        conf_thresh=conf_thresh,
+                        clahe_applied=run_norm,
+                        patient_name=patient_name,
+                        patient_dob=patient_dob_str,
+                    )
 
-    #         col_img, col_info = st.columns([1, 1])
+                    st.download_button(
+                        label="📥 Download PDF Report",
+                        data=pdf_bytes,
+                        file_name="cardiodetect_yolov11_report.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        disabled=not patient_name,
+                    )
 
-    #         with col_img:
-    #             st.markdown("**📸 Hasil Bounding Box**")
-    #             st.image(ssd_img, use_column_width=True)
+                    if patient_name:
+                        st.success("✅ PDF report siap di-download")
+                    else:
+                        st.info("ℹ️ Isi nama pasien untuk mengaktifkan download.")
 
-    #         with col_info:
-    #             st.markdown("**📋 Informasi Deteksi**")
-    #             render_stats_card("SSD300 VGG16", len(ssd_dets), ssd_time, conf_thresh)
+                except Exception as e:
 
-    #             if ssd_dets:
-    #                 st.markdown("**🔎 Detail Hasil**")
-    #                 for det in ssd_dets:
-    #                     render_result_card(det)
-    #             else:
-    #                 st.info("ℹ️ Tidak ada objek terdeteksi di atas threshold.")
-    
+                    st.error(
+                        f"❌ Gagal membuat PDF report:\n{e}"
+                    )
+
     # ============================================================
     # SSD saja — gambar kiri, info kanan
     # ============================================================
@@ -749,6 +729,8 @@ elif selected == "Detection":
                         inf_time_ms=ssd_time,
                         conf_thresh=conf_thresh,
                         clahe_applied=run_norm,
+                        patient_name=patient_name,
+                        patient_dob=patient_dob_str,
                     )
 
                     st.download_button(
@@ -757,11 +739,15 @@ elif selected == "Detection":
                         file_name="cardiodetect_ssd300_report.pdf",
                         mime="application/pdf",
                         use_container_width=True,
+                        disabled=not patient_name,
                     )
 
-                    st.success(
-                        "✅ PDF report siap di-download"
-                    )
+                    if patient_name:
+                        st.success(
+                            "✅ PDF report siap di-download"
+                        )
+                    else:
+                        st.info("ℹ️ Isi nama pasien untuk mengaktifkan download.")
 
                 except Exception as e:
 
@@ -935,7 +921,6 @@ elif selected == "About":
         7. **Confidence Filtering** — Filter sesuai threshold
         8. **Interpretasi** — Tampilkan hasil + keterangan klinis
         """)
-
 
 # ============================================================
 # FOOTER

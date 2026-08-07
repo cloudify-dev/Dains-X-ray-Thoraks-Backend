@@ -239,9 +239,23 @@ def export_detection_pdf(
     inf_time_ms  : float,
     conf_thresh  : float,
     clahe_applied: bool = True,
+    patient_name : str = "",
+    patient_dob  : str = "",
 ) -> bytes:
     """
     Generate laporan PDF hasil deteksi kardiomegali.
+
+    Parameters
+    ----------
+    model_name    : nama model yang digunakan ("YOLOv11s" / "SSD300 VGG16")
+    original_img  : citra X-ray asli (PIL Image)
+    result_img    : citra hasil deteksi dengan bounding box (PIL Image)
+    detections    : list of dict hasil deteksi
+    inf_time_ms   : waktu inferensi dalam milidetik
+    conf_thresh   : confidence threshold yang digunakan
+    clahe_applied : status CLAHE enhancement (True/False)
+    patient_name  : nama pasien (opsional, default kosong)
+    patient_dob   : tanggal lahir pasien dalam bentuk string (opsional, default kosong)
 
     Returns
     -------
@@ -263,12 +277,23 @@ def export_detection_pdf(
 
     # ── Judul ─────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 3*mm))
-    story.append(Paragraph('LAPORAN HASIL DETEKSI KARDIOMEGALI', ST['report_title']))
-    # story.append(Paragraph('X-Ray Thoraks &nbsp;·&nbsp; Deep Learning Object Detection',
-    #                         ST['report_sub']))
+    story.append(Paragraph('LAPORAN HASIL DETEKSI', ST['report_title']))
     story.append(Spacer(2, 5*mm))
     story.append(HRFlowable(width=USABLE_W, thickness=1,
                              color=C_BLUE, spaceAfter=6))
+
+    # ── DATA PASIEN ───────────────────────────────────────────────────────────
+    story.append(Paragraph('Data Pasien', ST['section']))
+
+    patient_rows = [
+        ('Nama Pasien',   patient_name.strip() if patient_name and patient_name.strip() else '-'),
+        ('Tanggal Lahir', patient_dob.strip() if patient_dob and patient_dob.strip() else '-'),
+        ('Tanggal Pemeriksaan', date_str),
+    ]
+    story.append(KeepTogether([
+        _kv_table(patient_rows, header_row=('Identitas', 'Keterangan'))
+    ]))
+    story.append(Spacer(1, 4*mm))
 
     # ── HASIL UTAMA (banner besar) ────────────────────────────────────────────
     story.append(Paragraph('Hasil Deteksi', ST['section']))
@@ -325,8 +350,9 @@ def export_detection_pdf(
     ]))
     story.append(img_tbl)
     story.append(Spacer(1, 5*mm))
-
-    # ── INFO RINGKAS (satu tabel 4 baris saja) ────────────────────────────────
+    
+    story.append(Spacer(1, 50*mm))
+    # ── INFO RINGKAS (satu tabel beberapa baris) ──────────────────────────────
     story.append(Paragraph('Informasi Pemeriksaan', ST['section']))
 
     speed = ('Cepat' if inf_time_ms < 500 else

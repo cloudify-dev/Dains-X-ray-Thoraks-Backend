@@ -6,9 +6,7 @@ import torchvision.transforms as T
 from pathlib import Path
 
 
-# ============================================================
 # VALIDASI X-RAY
-# ============================================================
 def is_valid_xray(image: Image.Image) -> bool:
     try:
         gray = np.array(image.convert("L"))
@@ -25,9 +23,7 @@ def is_valid_xray(image: Image.Image) -> bool:
         return False
 
 
-# ============================================================
 # NORMALISASI OTOMATIS X-RAY (CLAHE)
-# ============================================================
 def normalize_xray(image: Image.Image) -> Image.Image:
     img = np.array(image)
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) if len(img.shape) == 3 else img
@@ -38,12 +34,9 @@ def normalize_xray(image: Image.Image) -> Image.Image:
     enhanced_rgb = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2RGB)
     return Image.fromarray(enhanced_rgb)
 
-
-# ============================================================
 # YOLOv11 INFERENCE
 # Notebook menggunakan: YOLO('yolo11s.pt') dari ultralytics
 # Output project: outputs/yolo11/thorax/weights/best.pt
-# ============================================================
 def predict_yolo(model, image: Image.Image, conf_threshold: float = 0.25):
     """
     Jalankan inferensi YOLOv11 pada gambar PIL.
